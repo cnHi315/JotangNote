@@ -3,27 +3,28 @@ package com.example.mapper;
 import java.util.List;
 
 import org.apache.ibatis.annotations.Delete;
-import org.apache.ibatis.annotations.Insert;
-import org.apache.ibatis.annotations.Options;
-import org.apache.ibatis.annotations.Select;
-import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.annotations.Param;
 
 import com.example.entity.Note;
 
 public interface NoteMapper {
-    @Select("select * from note_table")
-    List<Note> list();
-
-    @Select("select * from note_table where id = #{id}")
+    // Select
     Note getById(Integer id);
 
+    List<Note> queryByKeyword(
+            @Param("keyword") String keyword,
+            @Param("offset") Integer offset,
+            @Param("pagesize") Integer pagesize);
+
+    Long countByKeyword(String keyword);
+
+    // Delete
     @Delete("delete from note_table where id = #{id}")
     Integer deleteById(Integer id);
 
-    @Insert("INSERT INTO note_table (title,content,created_at,updated_at) VALUES (#{title},#{content},#{createdAt},#{updatedAt}) ")
-    @Options(useGeneratedKeys = true, keyProperty = "id")
+    // Insert
     Integer insert(Note note);
 
-    @Update("update note_table SET title=#{title},content=#{content},updated_at=#{updatedAt} WHERE id = #{id}")
+    // Update
     Integer update(Note note);
 }

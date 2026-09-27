@@ -1,0 +1,14 @@
+{
+    "properties": [
+        {
+            "name": "jwt.secret",
+            "type": "java.lang.String",
+            "description": "JWT 签名密钥，至少 32 个字符"
+        },
+        {
+            "name": "jwt.expire-days",
+            "type": "java.lang.Long",
+            "description": "JWT 令牌有效期（天）"
+        }
+    ]
+}
