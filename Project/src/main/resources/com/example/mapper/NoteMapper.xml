@@ -18,8 +18,8 @@
 
     <insert id="insert" useGeneratedKeys="true"
              keyProperty="id">
-        INSERT INTO note_table (title, content, created_at, updated_at) 
-        VALUES (#{title}, #{content}, #{createdAt}, #{updatedAt})
+        INSERT INTO note_table (title, content, created_at, updated_at, user_id) 
+        VALUES (#{title}, #{content}, #{createdAt}, #{updatedAt}, #{userId})
     </insert>
 
     <!-- keywordFilter-->

@@ -9,7 +9,7 @@ import com.example.entity.Note;
 
 public interface NoteMapper {
     // Select
-    Note getById(Integer id);
+    Note getById(Long id);
 
     List<Note> queryByKeyword(
             @Param("keyword") String keyword,
@@ -20,7 +20,7 @@ public interface NoteMapper {
 
     // Delete
     @Delete("delete from note_table where id = #{id}")
-    Integer deleteById(Integer id);
+    Integer deleteById(Long id);
 
     // Insert
     Integer insert(Note note);

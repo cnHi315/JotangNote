@@ -6,14 +6,15 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.ModelAndView;
 
-import com.alibaba.fastjson.JSONObject;
 import com.example.common.Result;
 import com.example.utils.JwtUtils;
 
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import tools.jackson.databind.json.JsonMapper;
 
 @Slf4j
 @Component
@@ -22,38 +23,36 @@ public class LoginCheckInterceptor implements HandlerInterceptor {
 
     private final JwtUtils jwtUtils;
 
+    private final JsonMapper jsonMapper;
+
     @Override // 目标资源方法运行前运行，判断是否放行
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws Exception {
 
-        // 获取 url
-        String url = request.getRequestURL().toString();
-        log.info("请求的url: {}", url);
+        // 避免中文编码问题
+        response.setContentType("application/json;charset=utf-8");
 
         // 获取 token 匹配令牌
         String jwt = request.getHeader("token");
 
         if (!StringUtils.hasLength(jwt)) {
-            log.info("请求头为空，返回未登录信息");
-            Result<Object> error = Result.error(401, "未登录");
-            String notLogin = JSONObject.toJSONString(error);
-            response.getWriter().write(notLogin);
-            return false;
+            log.warn("请求头无 token, 拒绝登录");
+            return writeError(response, 401, "未登录");
         }
 
         try {
-            jwtUtils.parseJWT(jwt);
+            Claims claims = jwtUtils.parseJWT(jwt);
+            Long userId = claims.get("userId", Long.class);
+            String username = claims.get("username", String.class);
+            request.setAttribute("userId", userId);
+            request.setAttribute("username", username);
         } catch (Exception e) {
-            e.printStackTrace();
-            log.info("解析令牌错误，未登录");
-            Result<Object> error = Result.error(401, "未登录");
-            String notLogin = JSONObject.toJSONString(error);
-            response.getWriter().write(notLogin);
-            return false;
+            log.warn("解析令牌错误", e);
+            return writeError(response, 401, "未登录");
         }
 
         // 放行
-        log.info("令牌合法，放行");
+        log.debug("令牌合法，放行");
         return true;
     }
 
@@ -66,4 +65,12 @@ public class LoginCheckInterceptor implements HandlerInterceptor {
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler,
             @Nullable Exception ex) throws Exception {
     }
+
+    private boolean writeError(HttpServletResponse response, Integer code, String msg) throws Exception {
+        Result<Object> error = Result.error(code, msg);
+        String notLogin = jsonMapper.writeValueAsString(error);
+        response.getWriter().write(notLogin);
+        return false;
+    }
+
 }

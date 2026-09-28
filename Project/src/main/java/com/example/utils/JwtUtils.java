@@ -26,9 +26,9 @@ public class JwtUtils {
 
     public String generateJWT(Map<String, Object> claims) {
         return Jwts.builder()
-                .signWith(secretKey, Jwts.SIG.HS256)
                 .claims(claims)
                 .expiration(new Date(System.currentTimeMillis() + expire))
+                .signWith(secretKey, Jwts.SIG.HS256)
                 .compact();
     }
 

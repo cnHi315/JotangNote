@@ -3,7 +3,9 @@ CREATE TABLE IF NOT EXISTS note_table(
     title varchar(200) NOT NULL COMMENT '标题',
     content text NOT NULL COMMENT '正文',
     created_at DATETIME NOT NULL COMMENT '创建时间',
-    updated_at DATETIME NOT NULL COMMENT '更新时间'
+    updated_at DATETIME NOT NULL COMMENT '更新时间',
+    user_id BIGINT NOT NULL COMMENT '用户id',
+    is_public BOOLEAN NOT NULL DEFAULT 1 COMMENT '公开'
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT '笔记数据库';
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '用户id',
