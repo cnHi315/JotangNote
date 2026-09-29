@@ -3,6 +3,10 @@ package com.example.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 public class NoteService {
     private final NoteMapper noteMapper;
 
+    // 归属校验
     private Note checkOwner(Long id, Long userId) {
         Note existing = noteMapper.getById(id);
         if (existing == null) {
@@ -32,6 +37,7 @@ public class NoteService {
     }
 
     // GET：查看指定笔记
+    @Cacheable(cacheNames = "note", key = "#id")
     public Note getById(Long id) {
         Note existing = noteMapper.getById(id);
         if (existing == null) {
@@ -41,13 +47,8 @@ public class NoteService {
     }
 
     // GET：根据关键字查询笔记/查询全部
+    @Cacheable(cacheNames = "noteList", key = "#keyword + ':' + #page + ':' + #pagesize")
     public PageBean<Note> queryByKeyword(String keyword, Integer page, Integer pagesize) {
-        if (page < 1)
-            page = 1;
-        if (pagesize > 100)
-            pagesize = 100;
-        else if (pagesize < 1)
-            pagesize = 10;
         int offset = (page - 1) * pagesize;
         List<Note> list = noteMapper.queryByKeyword(keyword, offset, pagesize);
         Long total = noteMapper.countByKeyword(keyword);
@@ -55,6 +56,10 @@ public class NoteService {
     }
 
     // DELETE：删除指定笔记
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "noteList", allEntries = true),
+            @CacheEvict(cacheNames = "note", key = "#id")
+    })
     @Transactional(rollbackFor = Exception.class)
     public void deleteById(Long id, Long userId) {
         checkOwner(id, userId);
@@ -63,6 +68,7 @@ public class NoteService {
     }
 
     // POST：新建笔记
+    @CacheEvict(cacheNames = "noteList", allEntries = true)
     @Transactional(rollbackFor = Exception.class)
     public Note create(Note note, Long userId) {
         LocalDateTime now = LocalDateTime.now();
@@ -79,6 +85,11 @@ public class NoteService {
     }
 
     // PUT：更新笔记内容
+    @Caching(put = {
+            @CachePut(cacheNames = "note", key = "#id")
+    }, evict = {
+            @CacheEvict(cacheNames = "noteList", allEntries = true)
+    })
     @Transactional(rollbackFor = Exception.class)
     public Note update(Long id, Note note, Long userId) {
         checkOwner(id, userId);

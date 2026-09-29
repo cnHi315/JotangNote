@@ -38,6 +38,11 @@ public class NoteController {
             @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer pagesize) {
+        // 参数合理化
+        page = (page < 1 ? 1 : page);
+        pagesize = (pagesize > 100 ? 100 : pagesize);
+        pagesize = (pagesize < 1 ? 10 : pagesize);
+
         PageBean<Note> pageBean = noteService.queryByKeyword(keyword, page, pagesize);
         return Result.success(pageBean);
     }
