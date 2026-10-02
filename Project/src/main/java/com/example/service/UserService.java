@@ -2,13 +2,17 @@ package com.example.service;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.common.PageBean;
+import com.example.entity.Note;
 import com.example.entity.User;
 import com.example.exception.BusinessException;
 import com.example.mapper.UserMapper;
@@ -59,4 +63,14 @@ public class UserService {
         String jwt = jwtUtils.generateJWT(claims);
         return jwt;
     }
+
+    // GET: 查看用户笔记
+    @Cacheable(cacheNames = "noteList", key = "'usernote:' + #pagesize + ':' + #page + ':' + #userId", condition = "#userId != #currentUser")
+    public PageBean<Note> queryUserNotes(Integer page, Integer pagesize, Long userId, Long currentUser) {
+        int offset = (page - 1) * pagesize;
+        List<Note> list = userMapper.queryByUserId(currentUser, userId, offset, pagesize);
+        Long total = userMapper.countByUserId(currentUser, userId);
+        return new PageBean<Note>(total, list);
+    }
+
 }

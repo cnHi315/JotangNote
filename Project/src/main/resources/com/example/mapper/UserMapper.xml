@@ -2,5 +2,22 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.mapper.UserMapper">
     
+    <!-- countByUserId --> 
+
+    <select id="countByUserId">
+        SELECT COUNT(*) FROM note_table
+        WHERE (is_public = 1 OR user_id = #{currentUser})
+            AND user_id = #{userId}
+    </select>
+
+    <!-- queryByUserId --> 
+
+    <select id="queryByUserId">
+        SELECT * FROM note_table
+        WHERE (is_public = 1 OR user_id = #{currentUser})
+            AND user_id = #{userId}
+        ORDER BY created_at DESC
+        LIMIT #{offset}, #{pagesize}
+    </select>
 
 </mapper>

@@ -28,8 +28,9 @@ public class NoteController {
     private final NoteService noteService;
 
     @GetMapping("/{id}")
-    public Result<Note> selectById(@PathVariable Long id) {
-        Note note = noteService.getById(id);
+    public Result<Note> selectById(@PathVariable Long id,
+            @RequestAttribute("userId") Long userId) {
+        Note note = noteService.getById(id, userId);
         return Result.success(note);
     }
 
@@ -70,5 +71,13 @@ public class NoteController {
             @RequestAttribute("userId") Long userId) {
         Note updated = noteService.update(id, note, userId);
         return Result.success(updated);
+    }
+
+    @Log("更改公开/私密状态")
+    @PutMapping("/{id}/visibility")
+    public Result<Note> changePublic(@PathVariable Long id,
+            @RequestAttribute("userId") Long userId) {
+        Note note = noteService.changeIsPublic(id, userId);
+        return Result.success(note);
     }
 }

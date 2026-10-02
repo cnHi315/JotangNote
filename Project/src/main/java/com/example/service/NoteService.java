@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
@@ -37,17 +36,20 @@ public class NoteService {
     }
 
     // GET：查看指定笔记
-    @Cacheable(cacheNames = "note", key = "#id")
-    public Note getById(Long id) {
+    @Cacheable(cacheNames = "note", key = "#id", unless = "!#result.isPublic")
+    public Note getById(Long id, Long userId) {
         Note existing = noteMapper.getById(id);
         if (existing == null) {
+            throw new BusinessException(404, "资源不存在");
+        }
+        if (!existing.getIsPublic() && !existing.getUserId().equals(userId)) {
             throw new BusinessException(404, "资源不存在");
         }
         return existing;
     }
 
     // GET：根据关键字查询笔记/查询全部
-    @Cacheable(cacheNames = "noteList", key = "#keyword + ':' + #page + ':' + #pagesize")
+    @Cacheable(cacheNames = "noteList", key = "'keywordnote:' +#keyword + ':' + #page + ':' + #pagesize")
     public PageBean<Note> queryByKeyword(String keyword, Integer page, Integer pagesize) {
         int offset = (page - 1) * pagesize;
         List<Note> list = noteMapper.queryByKeyword(keyword, offset, pagesize);
@@ -85,9 +87,8 @@ public class NoteService {
     }
 
     // PUT：更新笔记内容
-    @Caching(put = {
-            @CachePut(cacheNames = "note", key = "#id")
-    }, evict = {
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "note", key = "#id"),
             @CacheEvict(cacheNames = "noteList", allEntries = true)
     })
     @Transactional(rollbackFor = Exception.class)
@@ -98,6 +99,19 @@ public class NoteService {
         note.setUpdatedAt(LocalDateTime.now());
 
         noteMapper.update(note);
+        return noteMapper.getById(id);
+    }
+
+    // PUT: 更改公开/私密状态
+    @Caching(evict = {
+            @CacheEvict(cacheNames = "note", key = "#id"),
+            @CacheEvict(cacheNames = "noteList", allEntries = true)
+    })
+    @Transactional(rollbackFor = Exception.class)
+    public Note changeIsPublic(Long id, Long userId) {
+        checkOwner(id, userId);
+
+        noteMapper.changePublic(id);
         return noteMapper.getById(id);
     }
 }

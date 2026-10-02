@@ -26,8 +26,9 @@
 
     <sql id="keywordFilter">
         <where>
+            is_public = 1
             <if test="keyword != null and keyword != ''">
-                (title LIKE CONCAT('%', #{keyword}, '%')
+                AND (title LIKE CONCAT('%', #{keyword}, '%')
                 OR content LIKE CONCAT('%', #{keyword}, '%'))
             </if>
         </where>
