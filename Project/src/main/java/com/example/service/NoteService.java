@@ -3,6 +3,7 @@ package com.example.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -13,6 +14,7 @@ import com.example.common.PageBean;
 import com.example.entity.Note;
 import com.example.exception.BusinessException;
 import com.example.mapper.NoteMapper;
+import com.example.mq.NoteEvent;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class NoteService {
     private final NoteMapper noteMapper;
+    private final RabbitTemplate rabbitTemplate;
 
     // 归属校验
     private Note checkOwner(Long id, Long userId) {
@@ -67,6 +70,9 @@ public class NoteService {
         checkOwner(id, userId);
 
         noteMapper.deleteById(id);
+
+        NoteEvent event = new NoteEvent("note.deleted", id, userId, LocalDateTime.now());
+        rabbitTemplate.convertAndSend("jotangnote.events", "note.deleted", event);
     }
 
     // POST：新建笔记
@@ -82,6 +88,9 @@ public class NoteService {
         if (noteMapper.insert(note) <= 0) {
             throw new BusinessException(500, "服务器错误");
         }
+
+        NoteEvent event = new NoteEvent("note.created", note.getId(), userId, LocalDateTime.now());
+        rabbitTemplate.convertAndSend("jotangnote.events", "note.created", event);
 
         return note;
     }
@@ -99,6 +108,10 @@ public class NoteService {
         note.setUpdatedAt(LocalDateTime.now());
 
         noteMapper.update(note);
+
+        NoteEvent event = new NoteEvent("note.updated", id, userId, LocalDateTime.now());
+        rabbitTemplate.convertAndSend("jotangnote.events", "note.updated", event);
+
         return noteMapper.getById(id);
     }
 
