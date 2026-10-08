@@ -9,6 +9,21 @@
             "name": "jwt.expire-days",
             "type": "java.lang.Long",
             "description": "JWT 令牌有效期（天）"
+        },
+        {
+            "name": "ai.api-key",
+            "type": "java.lang.String",
+            "description": "AI 平台 API Key"
+        },
+        {
+            "name": "ai.base-url",
+            "type": "java.lang.String",
+            "description": "AI 平台基础 URL"
+        },
+        {
+            "name": "ai.model",
+            "type": "java.lang.String",
+            "description": "AI 模型名称"
         }
     ]
 }
