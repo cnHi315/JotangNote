@@ -1,0 +1,30 @@
+@import 'tailwindcss';
+
+/* 自定义动画：Tailwind 4 里用 --animate-* 声明，会自动生成 animate-xxx 工具类 */
+@theme {
+  --animate-pet-float: pet-float 4s ease-in-out infinite;
+
+  @keyframes pet-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-6px);
+    }
+  }
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'PingFang SC',
+    'Microsoft YaHei',
+    sans-serif;
+}
