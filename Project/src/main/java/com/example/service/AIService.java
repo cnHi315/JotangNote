@@ -53,14 +53,14 @@ public class AIService {
     }
 
     // 将新消息添加到缓存
-    private void conversationRedis(String key, String role, String content) {
-        String jsonMessage = jsonMapper.writeValueAsString(new AIMessage(role, content));
+    private void conversationRedis(String key, AIMessage aiMessage) {
+        String jsonMessage = jsonMapper.writeValueAsString(aiMessage);
         redis.opsForList().rightPush(key, jsonMessage);
         redis.opsForList().trim(key, -20, -1);
         redis.expire(key, Duration.ofMinutes(30));
     }
 
-    // ai对话
+    // ai对话，保持会话缓存和临时 messages 一致
     public String chat(String userMessage, Long userId) {
         String key = KEY_PREFIX + userId;
 
@@ -70,9 +70,15 @@ public class AIService {
         try {
             messages = new ArrayList<>();
             for (String message : existing) {
-                messages.add(jsonMapper.readValue(message, AIMessage.class));
+                AIMessage pastMessage = jsonMapper.readValue(message, AIMessage.class);
+                // 开头可能不是 user 的信息，先进行截取再保留
+                if (!messages.isEmpty() || pastMessage.getRole().equals("user")) {
+                    messages.add(pastMessage);
+                }
             }
-            messages.add(new AIMessage("user", userMessage));
+            AIMessage userAiMessage = new AIMessage("user", userMessage);
+            messages.add(userAiMessage);
+            conversationRedis(key, userAiMessage);
         } catch (JacksonException e) {
             log.warn("反序列化出错", e);
             throw new BusinessException(500, "服务器错误");
@@ -82,30 +88,32 @@ public class AIService {
             AIRequest request = new AIRequest(model, messages);
             AIMessage aiMessage = callModel(request);
 
-            // 检查有无工具调用，无工具调用输出ai回复
-            if (aiMessage.getTool_calls() == null) {
-                String aiResponse = aiMessage.getContent();
-                conversationRedis(key, "user", userMessage);
-                conversationRedis(key, "assistant", aiResponse);
+            messages.add(aiMessage);
+            conversationRedis(key, aiMessage);
 
-                return aiResponse;
+            // 检查有无工具调用，无工具调用直接输出ai回复
+            if (aiMessage.getTool_calls() == null) {
+                return aiMessage.getContent();
             }
 
-            // 有调用需求，将ai回复的需求添加到message
-            messages.add(aiMessage);
-
-            // 获取回复中的参数，调用请求的方法
+            // 有调用需求，获取回复中的参数，调用请求的方法
             for (AIToolCall aiToolCall : aiMessage.getTool_calls()) {
                 JsonNode arguments = jsonMapper.readTree(aiToolCall.getFunction().getArguments()); // 反序列化参数
-                Note toolReturned = noteService.getById(arguments.path("id").asLong(0), userId);
-                String toolResult = jsonMapper.writeValueAsString(Map.of(
-                        "title", toolReturned.getTitle(),
-                        "content", toolReturned.getContent())); // 序列化消息
+                String toolResult;
+                try {
+                    Note toolReturned = noteService.getById(arguments.path("id").asLong(0), userId);
+                    toolResult = jsonMapper.writeValueAsString(Map.of(
+                            "title", toolReturned.getTitle(),
+                            "content", toolReturned.getContent()));
+                } catch (BusinessException e) {
+                    toolResult = jsonMapper.writeValueAsString(Map.of("error", e.getMessage()));
+                }
 
                 // 将 tool 调用结果添加到 messages，以便下次 callModel 请求读取
                 AIMessage toolMessage = new AIMessage("tool", toolResult);
                 toolMessage.setTool_call_id(aiToolCall.getId());
                 messages.add(toolMessage);
+                conversationRedis(key, toolMessage);
             }
         }
 
