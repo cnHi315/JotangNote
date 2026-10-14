@@ -7,8 +7,11 @@ import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 import com.example.aidto.AIMessage;
@@ -46,7 +49,12 @@ public class AIService {
             JsonMapper jsonMapper, NoteService noteService) {
         this.apiKey = apiKey;
         this.model = model;
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(5));
+        factory.setReadTimeout(Duration.ofSeconds(120));
+        this.restClient = RestClient.builder().baseUrl(baseUrl).requestFactory(factory).build();
+
         this.redis = stringRedisTemplate;
         this.jsonMapper = jsonMapper;
         this.noteService = noteService;
@@ -67,6 +75,7 @@ public class AIService {
         List<String> existing = redis.opsForList().range(key, 0, -1);
 
         List<AIMessage> messages;
+        List<AIMessage> pendings = new ArrayList<>(); // 临时缓存记录，调用成功后同步到缓存
         try {
             messages = new ArrayList<>();
             for (String message : existing) {
@@ -78,7 +87,7 @@ public class AIService {
             }
             AIMessage userAiMessage = new AIMessage("user", userMessage);
             messages.add(userAiMessage);
-            conversationRedis(key, userAiMessage);
+            pendings.add(userAiMessage);
         } catch (JacksonException e) {
             log.warn("反序列化出错", e);
             throw new BusinessException(500, "服务器错误");
@@ -89,10 +98,13 @@ public class AIService {
             AIMessage aiMessage = callModel(request);
 
             messages.add(aiMessage);
-            conversationRedis(key, aiMessage);
+            pendings.add(aiMessage);
 
-            // 检查有无工具调用，无工具调用直接输出ai回复
+            // 检查有无工具调用，无工具调用，同步缓存后输出ai回复
             if (aiMessage.getTool_calls() == null) {
+                for (AIMessage pending : pendings) {
+                    conversationRedis(key, pending);
+                }
                 return aiMessage.getContent();
             }
 
@@ -113,7 +125,7 @@ public class AIService {
                 AIMessage toolMessage = new AIMessage("tool", toolResult);
                 toolMessage.setTool_call_id(aiToolCall.getId());
                 messages.add(toolMessage);
-                conversationRedis(key, toolMessage);
+                pendings.add(toolMessage);
             }
         }
 
@@ -143,6 +155,9 @@ public class AIService {
                     Thread.currentThread().interrupt(); // 恢复中断标志
                     throw new BusinessException(500, "请求被中断");
                 }
+            } catch (ResourceAccessException | HttpServerErrorException e) {
+                log.warn("调用模型失败：{}", e.getMessage());
+                throw new BusinessException(503, "模型服务暂时不可用，请稍后再试");
             }
         }
     }
