@@ -37,8 +37,8 @@ public class OperationLogAspect {
                     userId, username, logOperation.value(), pjp.getSignature().toShortString(), cost);
             return result;
         } catch (Exception e) {
-            log.warn("[操作] 用户id={} 用户名={} 操作={} 方法={}",
-                    userId, username, logOperation.value(), pjp.getSignature().toShortString(), e);
+            log.warn("[操作] 用户id={} 用户名={} 操作={} 方法={} 异常={}",
+                    userId, username, logOperation.value(), pjp.getSignature().toShortString(), e.getMessage());
             throw e;
         }
 

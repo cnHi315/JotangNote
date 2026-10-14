@@ -30,10 +30,15 @@ public class UserService {
     private final UserMapper userMapper;
 
     // 用户密码使用argon2加密保存
-    private final PasswordEncoder encoder = Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8();
+    private static final PasswordEncoder encoder = Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8();
 
     @Transactional(rollbackFor = Exception.class)
     public User create(User user) {
+        User userMatched = userMapper.getByUsername(user.getUsername());
+        if (userMatched != null) {
+            throw new BusinessException(400, "用户名已存在");
+        }
+
         LocalDateTime now = LocalDateTime.now();
         user.setCreatedAt(now);
         user.setPassword(encoder.encode(user.getPassword())); // 将密码加密后存入数据库
