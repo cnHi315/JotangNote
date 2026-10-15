@@ -154,3 +154,110 @@ public Note getById(Long id) {
 ```
 
 >其实还有种 StringRedisTemplate + aop + 自定义注解的方法，可以自己直接定义缓存策略，不过现在学的已经够用了，等以后有需要再试试。
+
+## 三、缓存的三个经典问题
+
+### 1. 缓存一致性
+
+数据库改了，缓存里还是旧值。
+
+有三种解决方法：
+
+- 先更新数据库，再更新缓存
+- 先删缓存，再更新数据库
+- 先更新数据库，再删缓存
+
+但前两种顺序乱了会有问题：
+
+```text
+A 改库 → B 改库 → B 写缓存 → A 写缓存
+缓存里最后留下 A 的旧值
+```
+
+第三种删除不怕重复执行，删一次和删两次缓存都会抹去，下次读就会拿新值。
+
+### 2. 缓存穿透
+
+查一个库里不存在的 id。
+
+```text
+GET /notes/999999
+  ↓
+缓存没有 → 查库 → 为空 → 返回 404，也不往缓存里写
+  ↓
+频繁请求
+```
+
+这个 id 不存在，每次都会查数据库，显然会影响性能。
+
+所以选择写个空的占位值进去，让请求直接被 redis 弹回。同时设置短 TTL ，防止后续真的有新建的数据，缓存里还留着不存在的结论。
+
+### 3. 缓存击穿
+
+热点笔记的缓存到期，100 个请求同时到达，此时没有缓存，请求全部查库，显然对数据库有影响。
+
+常见的方法是加分布式锁，缓存没有的时候先设置一把 Redis 锁，抢到的去查库、写缓存、放锁，没抢到的等一小会儿重新读缓存。
+
+```bash
+SET lock:note:110 NX EX 10
+```
+
+>`NX`：key 不存在才设置，设置成功即抢到锁
+>`EX 10`：10 秒后自动删，实际时限需大于方法执行最长时间
+
+Java 中的写法：
+
+```java
+redis.opsForValue().setIfAbsent(lockKey, "TRUE", Duration.ofSeconds(10))
+```
+
+### 5. 项目里的实现
+
+`NoteService.getById` 原来是缓存注解，注解管不了穿透和击穿的时机，改成了手写。
+
+```java
+public Note getById(Long id, Long userId) {
+    String key = "note:" + id;
+
+    // 防穿透：命中拒绝记录直接返回
+    String denyKey = "note:" + id + ":deny:" + userId;
+    if ("NULL".equals(redis.opsForValue().get(denyKey))) {
+        throw new BusinessException(404, "资源不存在");
+    }
+
+    String cached = redis.opsForValue().get(key);
+    if (cached != null) {
+        return jsonMapper.readValue(cached, Note.class);
+    }
+
+    // 防击穿：抢不到锁就等一会儿重新走一遍
+    String lockKey = "note:lock:" + id;
+    if (!Boolean.TRUE.equals(redis.opsForValue().setIfAbsent(lockKey, "TRUE", Duration.ofSeconds(10)))) {
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return getById(id, userId);
+    }
+
+    try {
+        Note existing = noteMapper.getById(id);
+        if (existing == null) {
+            redis.opsForValue().set(denyKey, "NULL", Duration.ofMinutes(2));
+            throw new BusinessException(404, "资源不存在");
+        }
+        if (!existing.getIsPublic() && !existing.getUserId().equals(userId)) {
+            redis.opsForValue().set(denyKey, "NULL", Duration.ofMinutes(2));
+            throw new BusinessException(404, "资源不存在");
+        }
+
+        if (existing.getIsPublic()) {
+            redis.opsForValue().set(key, jsonMapper.writeValueAsString(existing), Duration.ofMinutes(30));
+        }
+        return existing;
+    } finally {
+        redis.delete(lockKey);
+    }
+}
+```
