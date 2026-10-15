@@ -5,6 +5,7 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import com.example.interceptor.LoginCheckInterceptor;
+import com.example.interceptor.RateLimitInterceptor;
 
 import lombok.RequiredArgsConstructor;
 
@@ -13,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 public class WebConfig implements WebMvcConfigurer {
 
     private final LoginCheckInterceptor loginCheckInterceptor;
+    private final RateLimitInterceptor rateLimitInterceptor;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -24,6 +26,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/users/register",
                         "/favicon.ico",
                         "/error");
+        registry.addInterceptor(rateLimitInterceptor).addPathPatterns("/**");
     }
 
 }

@@ -1,5 +1,6 @@
 package com.example.service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -7,6 +8,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,7 @@ import com.example.mq.NoteEvent;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import tools.jackson.databind.json.JsonMapper;
 
 @Slf4j
 @Service
@@ -25,13 +28,12 @@ import lombok.extern.slf4j.Slf4j;
 public class NoteService {
     private final NoteMapper noteMapper;
     private final RabbitTemplate rabbitTemplate;
+    private final StringRedisTemplate redis;
+    private final JsonMapper jsonMapper;
 
     // 归属校验
     private Note checkOwner(Long id, Long userId) {
-        Note existing = noteMapper.getById(id);
-        if (existing == null) {
-            throw new BusinessException(404, "资源不存在");
-        }
+        Note existing = getById(id, userId);
         if (!existing.getUserId().equals(userId)) {
             throw new BusinessException(403, "无权操作他人的笔记");
         }
@@ -39,16 +41,52 @@ public class NoteService {
     }
 
     // GET：查看指定笔记
-    @Cacheable(cacheNames = "note", key = "#id", unless = "!#result.isPublic")
     public Note getById(Long id, Long userId) {
-        Note existing = noteMapper.getById(id);
-        if (existing == null) {
+        String key = "note:" + id;
+
+        // 先查拒绝记录，避免缓存穿透
+        String denyKey = "note:" + id + ":deny:" + userId;
+        if ("NULL".equals(redis.opsForValue().get(denyKey))) {
             throw new BusinessException(404, "资源不存在");
         }
-        if (!existing.getIsPublic() && !existing.getUserId().equals(userId)) {
-            throw new BusinessException(404, "资源不存在");
+
+        // 查缓存
+        String cached = redis.opsForValue().get(key);
+        if (cached != null) {
+            return jsonMapper.readValue(cached, Note.class);
         }
-        return existing;
+
+        // 加锁，防击穿
+        String lockKey = "note:lock:" + id;
+        if (!Boolean.TRUE.equals(redis.opsForValue().setIfAbsent(lockKey, "TRUE", Duration.ofSeconds(10)))) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return getById(id, userId);
+        }
+
+        try {
+            Note existing = noteMapper.getById(id);
+            if (existing == null) {
+                redis.opsForValue().set(denyKey, "NULL", Duration.ofMinutes(2));
+                throw new BusinessException(404, "资源不存在");
+            }
+            if (!existing.getIsPublic() && !existing.getUserId().equals(userId)) {
+                redis.opsForValue().set(denyKey, "NULL", Duration.ofMinutes(2));
+                throw new BusinessException(404, "资源不存在");
+            }
+
+            if (existing.getIsPublic()) {
+                cached = jsonMapper.writeValueAsString(existing);
+                redis.opsForValue().set(key, cached, Duration.ofMinutes(30));
+            }
+
+            return existing;
+        } finally {
+            redis.delete(lockKey);
+        }
     }
 
     // GET：根据关键字查询笔记/查询全部
