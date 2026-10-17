@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class NoteEvent {
+    private String eventId;
     private String eventType;
     private Long noteId;
     private Long userId;

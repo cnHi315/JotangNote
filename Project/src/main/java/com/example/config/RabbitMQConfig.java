@@ -13,8 +13,8 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitMQConfig {
 
     @Bean
-    Queue noteAuditQueue() {
-        return new Queue("q.note.audit");
+    MessageConverter jsonMessageConverter() {
+        return new JacksonJsonMessageConverter();
     }
 
     @Bean
@@ -22,14 +22,28 @@ public class RabbitMQConfig {
         return new TopicExchange("jotangnote.events");
     }
 
+    // 笔记队列
+
+    @Bean
+    Queue noteAuditQueue() {
+        return new Queue("q.note.audit");
+    }
+
     @Bean
     Binding noteAuditBinding(Queue noteAuditQueue, TopicExchange noteExchange) {
         return BindingBuilder.bind(noteAuditQueue).to(noteExchange).with("note.#");
     }
 
+    // 评论队列
+
     @Bean
-    MessageConverter jsonMessageConverter() {
-        return new JacksonJsonMessageConverter();
+    Queue commentCommandQueue() {
+        return new Queue("q.comment.command");
+    }
+
+    @Bean
+    Binding commentCommandBinding(Queue commentCommandQueue, TopicExchange noteExchange) {
+        return BindingBuilder.bind(commentCommandQueue).to(noteExchange).with("comment.#");
     }
 
 }

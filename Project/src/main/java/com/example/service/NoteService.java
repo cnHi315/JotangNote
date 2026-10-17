@@ -3,6 +3,7 @@ package com.example.service;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.cache.annotation.CacheEvict;
@@ -109,7 +110,7 @@ public class NoteService {
 
         noteMapper.deleteById(id);
 
-        NoteEvent event = new NoteEvent("note.deleted", id, userId, LocalDateTime.now());
+        NoteEvent event = new NoteEvent(UUID.randomUUID().toString(), "note.deleted", id, userId, LocalDateTime.now());
         rabbitTemplate.convertAndSend("jotangnote.events", "note.deleted", event);
     }
 
@@ -127,7 +128,8 @@ public class NoteService {
             throw new BusinessException(500, "服务器错误");
         }
 
-        NoteEvent event = new NoteEvent("note.created", note.getId(), userId, LocalDateTime.now());
+        NoteEvent event = new NoteEvent(UUID.randomUUID().toString(), "note.created", note.getId(), userId,
+                LocalDateTime.now());
         rabbitTemplate.convertAndSend("jotangnote.events", "note.created", event);
 
         return note;
@@ -147,7 +149,7 @@ public class NoteService {
 
         noteMapper.update(note);
 
-        NoteEvent event = new NoteEvent("note.updated", id, userId, LocalDateTime.now());
+        NoteEvent event = new NoteEvent(UUID.randomUUID().toString(), "note.updated", id, userId, LocalDateTime.now());
         rabbitTemplate.convertAndSend("jotangnote.events", "note.updated", event);
 
         return noteMapper.getById(id);

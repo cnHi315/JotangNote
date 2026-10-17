@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.mapper.CommentMapper">
+
+    <!-- insert --> 
+
+    <insert id="insert" keyProperty="id" useGeneratedKeys="true">
+        INSERT INTO comment_table (note_id, user_id, username, parent_id, created_at, content) 
+        VALUES (#{noteId}, #{userId}, #{username}, #{parentId}, #{createdAt}, #{content})
+    </insert>
+
+    <!-- getByNoteId --> 
+
+    <select id="getByNoteId" resultType="Comment">
+        SELECT * FROM comment_table WHERE note_id = #{noteId}
+        ORDER BY created_at ASC, id ASC
+    </select>
+</mapper>
