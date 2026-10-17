@@ -220,3 +220,72 @@ public class NoteEvent {
 ```
 
 routing key 与 `eventType` 保持一致。routing key 供 broker 路由，eventType 供消费者读取。
+
+## 6. 顺序性
+
+MQ 只保证同一个队列、同一个消费者内先进先出。跨队列没有顺序。
+
+会乱的三种情况：
+
+- 一个队列挂多个消费者，各自取一条，谁先处理完不确定
+- 消费失败被 nack 重新入队，回到队列尾部，排到后来消息的后面
+- 消息超时进死信队列，再被投递回来
+
+保证的办法：
+
+- 单队列单消费者
+- 按业务主体分流，同一条数据的消息固定进同一个队列
+- 消费端记一个最后处理时间，比它旧的消息丢弃
+
+`q.note.audit` 和 `q.comment.command` 现在都是单消费者，各自队列内部有序。
+
+跨队列依然无序。笔记删除走 `q.note.audit`，评论创建走 `q.comment.command`。笔记行已经删掉、评论创建的消息还压在队列里，消费者处理它时照样能插进去，留下一条挂在已删笔记下的评论。
+
+消费端的兜底校验还没做。
+
+## 7. 幂等性
+
+重复的来源：
+
+- 生产者发出去后没收到 broker 的确认，以为失败，重发
+- 消费者处理完，ack 在路上丢了，broker 重投
+
+两次投递的是同一份消息，`eventId` 不变。
+
+消费端开头查一次：
+
+```java
+String eventKey = "mq:event:" + command.getEventId();
+if ("TRUE".equals(redis.opsForValue().get(eventKey))) {
+    log.info("跳过重复信息：eventId={}", command.getEventId());
+    return;
+}
+```
+
+处理成功之后才写这个键，TTL 30 分钟：
+
+```java
+redis.opsForValue().set(eventKey, "TRUE", Duration.ofMinutes(30));
+```
+
+顺序不能反。写在前面的情况下，insert 失败抛异常、消息重投，回来一看键在就跳过，这条评论永远不落库。
+
+同一条消息连投三次：
+
+```text
+第 1 次  处理评论消息完成: eventId=fixed-event-test-001
+第 2 次  跳过重复信息：eventId=fixed-event-test-001
+第 3 次  跳过重复信息：eventId=fixed-event-test-001
+```
+
+库里一条。
+
+换三个 id、内容不变再投：
+
+```text
+id=9   id=10   id=11   id=12    四条内容相同的评论
+```
+
+去重只认 id，不认内容。
+
+前端点两次发送是两个请求、两个 uuid，挡不住。那一层要靠客户端幂等键，前端生成、重试复用。项目里没做。
