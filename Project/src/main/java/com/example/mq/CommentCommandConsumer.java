@@ -46,8 +46,8 @@ public class CommentCommandConsumer {
         redis.opsForValue().set(eventKey, "TRUE", Duration.ofMinutes(30));
 
         log.info("处理评论消息完成: 用户id={}, 用户名={}, eventId={}, type={}",
-                command.getComment().getUserId(),
-                command.getComment().getUsername(),
+                command.getUserId(),
+                command.getUsername(),
                 command.getEventId(),
                 command.getEventType());
     }

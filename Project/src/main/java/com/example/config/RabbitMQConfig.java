@@ -2,7 +2,9 @@ package com.example.config;
 
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.FanoutExchange;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
@@ -26,7 +28,9 @@ public class RabbitMQConfig {
 
     @Bean
     Queue noteAuditQueue() {
-        return new Queue("q.note.audit");
+        return QueueBuilder.durable("q.note.audit")
+                .deadLetterExchange("jotangnote.dlx")
+                .build();
     }
 
     @Bean
@@ -38,12 +42,31 @@ public class RabbitMQConfig {
 
     @Bean
     Queue commentCommandQueue() {
-        return new Queue("q.comment.command");
+        return QueueBuilder.durable("q.comment.command")
+                .deadLetterExchange("jotangnote.dlx")
+                .build();
     }
 
     @Bean
     Binding commentCommandBinding(Queue commentCommandQueue, TopicExchange noteExchange) {
         return BindingBuilder.bind(commentCommandQueue).to(noteExchange).with("comment.#");
+    }
+
+    // 死信队列
+
+    @Bean
+    FanoutExchange deadLetterExchange() {
+        return new FanoutExchange("jotangnote.dlx");
+    }
+
+    @Bean
+    Queue deadQueue() {
+        return new Queue("q.dead");
+    }
+
+    @Bean
+    Binding deadBinding(Queue deadQueue, FanoutExchange deadLetterExchange) {
+        return BindingBuilder.bind(deadQueue).to(deadLetterExchange);
     }
 
 }
