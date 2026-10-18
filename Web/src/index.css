@@ -1,7 +1,30 @@
 @import 'tailwindcss';
 
-/* 自定义动画：Tailwind 4 里用 --animate-* 声明，会自动生成 animate-xxx 工具类 */
+/*
+ * 主色取自焦糖。整套是暖色低饱和，背景不用纯白，
+ * 白色卡片靠奶油色底衬托浮起，层次不靠阴影和边框堆。
+ */
 @theme {
+  /* 背景 */
+  --color-cream-50: #fdf8f2;
+  --color-cream-100: #f8eee3;
+  --color-cream-200: #f2e2d1;
+
+  /* 焦糖：500 做按钮底色，700 做文字和链接 */
+  --color-caramel-300: #ffd2a3;
+  --color-caramel-400: #ffbe78;
+  --color-caramel-500: #ffa64d;
+  --color-caramel-600: #f2932f;
+  --color-caramel-700: #a85a0c;
+
+  /* 可可：文字、边框 */
+  --color-cocoa-300: #c4b5a9;
+  --color-cocoa-400: #a08b7d;
+  --color-cocoa-500: #8a7568;
+  --color-cocoa-700: #5c4538;
+  --color-cocoa-800: #4a342a;
+  --color-cocoa-900: #3a2a22;
+
   --animate-pet-float: pet-float 4s ease-in-out infinite;
 
   @keyframes pet-float {
@@ -27,4 +50,12 @@ body {
     'PingFang SC',
     'Microsoft YaHei',
     sans-serif;
+  background-color: var(--color-cream-50);
+  color: var(--color-cocoa-900);
+}
+
+/* 焦点环统一成焦糖色，键盘操作时能看见 */
+:focus-visible {
+  outline: 2px solid var(--color-caramel-600);
+  outline-offset: 2px;
 }

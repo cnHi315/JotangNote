@@ -1,124 +1,95 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router'
 
-import { ApiError } from '@/api/http'
+import { login as loginApi, register as registerApi } from '@/api/user'
 import { useAuth } from '@/auth/context'
+import { Feedback } from '@/components/Feedback'
 
 type Mode = 'login' | 'register'
 
-const inputClass =
-  'w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-900'
-
 export function LoginPage() {
-  const { user, login, register } = useAuth()
+  const { user, login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const from = (location.state as { from?: string } | null)?.from ?? '/'
 
   const [mode, setMode] = useState<Mode>('login')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
 
-  // RequireAuth 被拦下来时会带上原本要去的地址，登录后跳回去
-  const from = (location.state as { from?: string } | null)?.from ?? '/'
+  if (user) return <Navigate to={from} replace />
 
-  if (user) {
-    return <Navigate to={from} replace />
-  }
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (busy) return
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault()
-    setError(null)
-    setPending(true)
-
+    setBusy(true)
+    setNotice(null)
     try {
-      // 注册接口只返回 User 不发 token，所以注册完还要再走一次登录
       if (mode === 'register') {
-        await register(username, password)
+        await registerApi(username.trim(), password)
+        // 注册完直接登录，少点一步
       }
-      await login(username, password)
+      const token = await loginApi(username.trim(), password)
+      login(token)
       navigate(from, { replace: true })
-    } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : '操作失败，请稍后重试')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '操作失败')
     } finally {
-      setPending(false)
+      setBusy(false)
     }
   }
 
-  function switchMode(next: Mode) {
-    setMode(next)
-    setError(null)
-  }
+  const input =
+    'w-full rounded-lg border border-cream-200 bg-white px-3 py-2 text-sm text-cocoa-900 outline-none transition placeholder:text-cocoa-300 focus:border-caramel-400'
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-sm">
-        <h1 className="text-center text-2xl font-semibold tracking-tight text-slate-900">
-          JotangNote
-        </h1>
-        <p className="mt-1 text-center text-sm text-slate-500">随手记下，随手翻到</p>
+    <div className="mx-auto max-w-sm pt-10">
+      <h1 className="text-xl font-medium text-cocoa-900">
+        {mode === 'login' ? '登录 JotangNote' : '注册一个新账号'}
+      </h1>
+      <p className="mt-1 text-sm text-cocoa-400">
+        {mode === 'login' ? '焦糖色的笔记，随手写点什么。' : '用户名和密码都不做限制，记住就行。'}
+      </p>
 
-        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-5 grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 text-sm">
-            {(['login', 'register'] as const).map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => switchMode(item)}
-                className={`rounded-md py-1.5 transition ${
-                  mode === item ? 'bg-white font-medium text-slate-900 shadow-sm' : 'text-slate-500'
-                }`}
-              >
-                {item === 'login' ? '登录' : '注册'}
-              </button>
-            ))}
-          </div>
+      <form onSubmit={handleSubmit} className="mt-8 space-y-3">
+        <input
+          className={input}
+          placeholder="用户名"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          autoComplete="username"
+        />
+        <input
+          className={input}
+          type="password"
+          placeholder="密码"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+        />
+        <button
+          type="submit"
+          disabled={busy || username.trim() === '' || password === ''}
+          className="w-full rounded-lg bg-caramel-500 py-2.5 text-sm text-cocoa-900 transition hover:bg-caramel-600 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {busy ? '请稍候…' : mode === 'login' ? '登录' : '注册并登录'}
+        </button>
+      </form>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="mb-1 block text-sm text-slate-600" htmlFor="username">
-                用户名
-              </label>
-              <input
-                id="username"
-                className={inputClass}
-                value={username}
-                autoComplete="username"
-                onChange={(e) => setUsername(e.target.value)}
-                required
-              />
-            </div>
+      <button
+        onClick={() => {
+          setMode(mode === 'login' ? 'register' : 'login')
+          setNotice(null)
+        }}
+        className="mt-4 w-full text-center text-sm text-cocoa-400 transition hover:text-caramel-700"
+      >
+        {mode === 'login' ? '没有账号？去注册' : '已有账号？去登录'}
+      </button>
 
-            <div>
-              <label className="mb-1 block text-sm text-slate-600" htmlFor="password">
-                密码
-              </label>
-              <input
-                id="password"
-                type="password"
-                className={inputClass}
-                value={password}
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-
-            {error ? (
-              <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
-            ) : null}
-
-            <button
-              type="submit"
-              disabled={pending}
-              className="w-full rounded-md bg-slate-900 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-50"
-            >
-              {pending ? '处理中…' : mode === 'login' ? '登录' : '注册并登录'}
-            </button>
-          </form>
-        </div>
-      </div>
+      <Feedback message={notice} onClose={() => setNotice(null)} />
     </div>
   )
 }

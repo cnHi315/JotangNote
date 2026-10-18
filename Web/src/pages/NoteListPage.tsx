@@ -1,75 +1,73 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 
-import { noteApi } from '@/api/note'
-import { Empty, ErrorBox, Loading } from '@/components/Feedback'
+import { listNotes } from '@/api/note'
 import { NoteCard } from '@/components/NoteCard'
 import { Pager } from '@/components/Pager'
 import { useRequest } from '@/hooks/useRequest'
 
-const PAGESIZE = 10
+const PAGESIZE = 6
 
 export function NoteListPage() {
   const [keyword, setKeyword] = useState('')
-  // keyword 是输入框里的实时值，search 是真正提交给后端的关键字，两者分开才不会边打字边请求
-  const [search, setSearch] = useState('')
+  const [applied, setApplied] = useState('')
   const [page, setPage] = useState(1)
 
-  const { data, loading, error } = useRequest(
-    () => noteApi.page(search, page, PAGESIZE),
-    [search, page],
+  const { data, error, loading } = useRequest(
+    () => listNotes(applied, page, PAGESIZE),
+    [applied, page],
   )
 
-  function handleSearch(event: FormEvent) {
-    event.preventDefault()
+  function handleSearch(e: FormEvent) {
+    e.preventDefault()
     setPage(1)
-    setSearch(keyword.trim())
+    setApplied(keyword.trim())
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold tracking-tight">全部笔记</h1>
+    <div>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-medium tracking-tight text-cocoa-900">笔记广场</h1>
+          <p className="mt-1 text-sm text-cocoa-400">公开的笔记都在这里。</p>
+        </div>
         <Link
-          to="/editor"
-          className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white transition hover:bg-slate-800"
+          to="/notes/new"
+          className="rounded-lg bg-caramel-500 px-4 py-2 text-sm text-cocoa-900 transition hover:bg-caramel-600"
         >
-          写一篇
+          写笔记
         </Link>
       </div>
 
-      <form onSubmit={handleSearch} className="flex gap-2">
+      <form onSubmit={handleSearch} className="mt-6 flex gap-2">
         <input
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          placeholder="搜索标题或内容…"
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-900"
+          placeholder="搜标题或正文"
+          className="min-w-0 flex-1 rounded-lg border border-cream-200 bg-white px-3 py-2 text-sm outline-none transition placeholder:text-cocoa-300 focus:border-caramel-400"
         />
         <button
           type="submit"
-          className="shrink-0 rounded-md border border-slate-300 px-4 py-2 text-sm transition hover:bg-slate-100"
+          className="rounded-lg border border-cream-200 bg-white px-4 py-2 text-sm text-cocoa-700 transition hover:border-caramel-400 hover:text-caramel-700"
         >
           搜索
         </button>
       </form>
 
-      {loading ? <Loading /> : null}
-      {error ? <ErrorBox>{error}</ErrorBox> : null}
+      <div className="mt-6 space-y-3">
+        {loading && <p className="text-sm text-cocoa-400">加载中…</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        {!loading && !error && data?.list.length === 0 && (
+          <p className="rounded-xl border border-dashed border-cream-200 py-12 text-center text-sm text-cocoa-400">
+            {applied ? '没有匹配的笔记。' : '还没有公开的笔记。'}
+          </p>
+        )}
+        {data?.list.map((note) => (
+          <NoteCard key={note.id} note={note} />
+        ))}
+      </div>
 
-      {!loading && !error && data ? (
-        data.list.length === 0 ? (
-          <Empty label={search ? `没有匹配「${search}」的笔记` : '还没有公开笔记'} />
-        ) : (
-          <>
-            <div className="space-y-3">
-              {data.list.map((note) => (
-                <NoteCard key={note.id} note={note} />
-              ))}
-            </div>
-            <Pager total={data.total} page={page} pagesize={PAGESIZE} onChange={setPage} />
-          </>
-        )
-      ) : null}
+      {data && <Pager page={page} total={data.total} pagesize={PAGESIZE} onChange={setPage} />}
     </div>
   )
 }

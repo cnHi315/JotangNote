@@ -2,20 +2,17 @@ import { createContext, useContext } from 'react'
 
 import type { JwtPayload } from '@/auth/token'
 
-export interface AuthState {
-  /** 未登录为 null；内容来自解析本地 token，不是请求后端拿的 */
+export interface AuthValue {
+  /** 从 token 里解析出来的当前用户，未登录为 null */
   user: JwtPayload | null
-  login: (username: string, password: string) => Promise<void>
-  register: (username: string, password: string) => Promise<void>
+  login: (token: string) => void
   logout: () => void
 }
 
-export const AuthContext = createContext<AuthState | null>(null)
+export const AuthContext = createContext<AuthValue | null>(null)
 
-export function useAuth(): AuthState {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth 必须在 <AuthProvider> 内部使用')
-  }
-  return context
+export function useAuth(): AuthValue {
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error('useAuth 必须在 AuthProvider 内使用')
+  return ctx
 }

@@ -27,6 +27,7 @@ export function clearToken(): void {
 export interface JwtPayload {
   userId: number
   username: string
+  /** 秒级时间戳 */
   exp?: number
 }
 
@@ -51,4 +52,10 @@ export function decodeToken(value: string): JwtPayload | null {
   } catch {
     return null
   }
+}
+
+/** 过期时间过了就当作没登录，省得每个接口都吃一次 401 */
+export function isExpired(payload: JwtPayload | null): boolean {
+  if (!payload?.exp) return false
+  return payload.exp * 1000 <= Date.now()
 }

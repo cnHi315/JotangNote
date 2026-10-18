@@ -12,7 +12,7 @@ if (!container) throw new Error('找不到 #root 挂载点')
 
 createRoot(container).render(
   <StrictMode>
-    {/* AuthProvider 在路由外层，所以路由里的任何组件都能用 useAuth */}
+    {/* AuthProvider 在路由外层，路由里的任何组件都能用 useAuth */}
     <AuthProvider>
       <RouterProvider router={router} />
     </AuthProvider>

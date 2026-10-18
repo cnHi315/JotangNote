@@ -1,52 +1,46 @@
-import { useCallback, useEffect, useState } from 'react'
-
-import { ApiError } from '@/api/http'
+import { useCallback, useEffect, useState, type DependencyList } from 'react'
 
 interface RequestState<T> {
   data: T | null
-  loading: boolean
   error: string | null
-  /** 手动重新加载，用在删除/更新之后刷新列表 */
+  loading: boolean
   reload: () => void
 }
 
 /**
- * 加载远端数据的最小封装：负责 loading / error / 重试。
- *
- * deps 的用法和 useEffect 一致，但数组长度必须恒定。
- * loader 每次渲染都是新函数，故意不放进依赖，真正的依赖由 deps 声明。
+ * 把「加载中 / 出错 / 拿到数据」这三种状态收在一起。
+ * deps 变了就重新发起请求，组件卸载后回来也不会再 setState。
  */
-export function useRequest<T>(loader: () => Promise<T>, deps: unknown[]): RequestState<T> {
+export function useRequest<T>(loader: () => Promise<T>, deps: DependencyList = []): RequestState<T> {
   const [data, setData] = useState<T | null>(null)
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [nonce, setNonce] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [tick, setTick] = useState(0)
+
+  const reload = useCallback(() => setTick((n) => n + 1), [])
 
   useEffect(() => {
-    let cancelled = false
+    let alive = true
     setLoading(true)
     setError(null)
 
     loader()
-      .then((result) => {
-        if (!cancelled) setData(result)
+      .then((value) => {
+        if (alive) setData(value)
       })
-      .catch((cause: unknown) => {
-        if (cancelled) return
-        setError(cause instanceof ApiError ? cause.message : '加载失败')
+      .catch((e: unknown) => {
+        if (alive) setError(e instanceof Error ? e.message : '加载失败')
       })
       .finally(() => {
-        // 组件已卸载还 setState 会触发 React 警告，用标志位挡掉
-        if (!cancelled) setLoading(false)
+        if (alive) setLoading(false)
       })
 
     return () => {
-      cancelled = true
+      alive = false
     }
+    // loader 每次渲染都是新函数，这里按调用方给的 deps 来
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, nonce])
+  }, [...deps, tick])
 
-  const reload = useCallback(() => setNonce((n) => n + 1), [])
-
-  return { data, loading, error, reload }
+  return { data, error, loading, reload }
 }

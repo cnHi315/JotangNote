@@ -1,100 +1,46 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 
-import { ApiError } from '@/api/http'
-import { noteApi } from '@/api/note'
-import type { Note } from '@/api/types'
-import { userApi } from '@/api/user'
-import { Empty, ErrorBox, Loading } from '@/components/Feedback'
-import { NoteCard, cardActionClass } from '@/components/NoteCard'
+import { getOwnNotes } from '@/api/user'
+import { NoteCard } from '@/components/NoteCard'
 import { Pager } from '@/components/Pager'
 import { useRequest } from '@/hooks/useRequest'
 
-const PAGESIZE = 10
+const PAGESIZE = 6
 
 export function MyNotesPage() {
   const [page, setPage] = useState(1)
-  const [actionError, setActionError] = useState<string | null>(null)
-
-  const { data, loading, error, reload } = useRequest(
-    () => userApi.myNotes(page, PAGESIZE),
-    [page],
-  )
-
-  async function run(action: () => Promise<unknown>, fallback: string) {
-    setActionError(null)
-    try {
-      await action()
-      reload()
-    } catch (cause) {
-      setActionError(cause instanceof ApiError ? cause.message : fallback)
-    }
-  }
-
-  function handleDelete(note: Note) {
-    if (!window.confirm(`确定删除「${note.title || '无标题'}」？`)) return
-    void run(() => noteApi.remove(note.id), '删除失败')
-  }
-
-  function handleToggle(note: Note) {
-    void run(() => noteApi.toggleVisibility(note.id), '操作失败')
-  }
+  const { data, error, loading } = useRequest(() => getOwnNotes(page, PAGESIZE), [page])
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold tracking-tight">我的笔记</h1>
+    <div>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-medium tracking-tight text-cocoa-900">我的笔记</h1>
+          <p className="mt-1 text-sm text-cocoa-400">公开的和私密的都在这里。</p>
+        </div>
         <Link
-          to="/editor"
-          className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white transition hover:bg-slate-800"
+          to="/notes/new"
+          className="rounded-lg bg-caramel-500 px-4 py-2 text-sm text-cocoa-900 transition hover:bg-caramel-600"
         >
-          写一篇
+          写笔记
         </Link>
       </div>
 
-      {actionError ? <ErrorBox>{actionError}</ErrorBox> : null}
+      <div className="mt-6 space-y-3">
+        {loading && <p className="text-sm text-cocoa-400">加载中…</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        {!loading && !error && data?.list.length === 0 && (
+          <p className="rounded-xl border border-dashed border-cream-200 py-12 text-center text-sm text-cocoa-400">
+            还没写过笔记。
+          </p>
+        )}
+        {data?.list.map((note) => (
+          <NoteCard key={note.id} note={note} />
+        ))}
+      </div>
 
-      {loading ? <Loading /> : null}
-      {error ? <ErrorBox>{error}</ErrorBox> : null}
-
-      {!loading && !error && data ? (
-        data.list.length === 0 ? (
-          <Empty label="你还没有写过笔记" />
-        ) : (
-          <>
-            <div className="space-y-3">
-              {data.list.map((note) => (
-                <NoteCard
-                  key={note.id}
-                  note={note}
-                  actions={
-                    <>
-                      <button
-                        type="button"
-                        className={cardActionClass}
-                        onClick={() => handleToggle(note)}
-                      >
-                        {note.isPublic ? '转私密' : '转公开'}
-                      </button>
-                      <Link to={`/editor/${note.id}`} className={cardActionClass}>
-                        编辑
-                      </Link>
-                      <button
-                        type="button"
-                        className={`${cardActionClass} hover:text-red-600`}
-                        onClick={() => handleDelete(note)}
-                      >
-                        删除
-                      </button>
-                    </>
-                  }
-                />
-              ))}
-            </div>
-            <Pager total={data.total} page={page} pagesize={PAGESIZE} onChange={setPage} />
-          </>
-        )
-      ) : null}
+      {data && <Pager page={page} total={data.total} pagesize={PAGESIZE} onChange={setPage} />}
     </div>
   )
 }

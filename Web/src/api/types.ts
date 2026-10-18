@@ -21,7 +21,7 @@ export interface Note {
   id: number
   title: string
   content: string
-  /** Jackson 序列化 LocalDateTime 得到的是 ISO-8601 字符串，如 2026-10-10T16:17:00 */
+  /** Jackson 序列化 LocalDateTime 得到的是 ISO-8601 字符串 */
   createdAt: string
   updatedAt: string
   userId: number
@@ -36,12 +36,20 @@ export interface User {
   createdAt?: string
 }
 
-/** 业务状态码，对应 Result 里 code 的取值 */
-export const CODE = {
-  OK: 200,
-  BAD_REQUEST: 400,
-  UNAUTHORIZED: 401,
-  FORBIDDEN: 403,
-  NOT_FOUND: 404,
-  SERVER_ERROR: 500,
-} as const
+/**
+ * 对应 com.example.entity.Comment。
+ * children 由后端在查出平表后建好树再返回，前端直接递归渲染。
+ * 已删除的评论 content 和 username 都是 null，节点本身保留在树上。
+ */
+export interface Comment {
+  id: number
+  noteId: number
+  userId: number
+  username: string | null
+  parentId: number | null
+  content: string | null
+  createdAt: string
+  isDeleted: boolean
+  noteIsDeleted: boolean
+  children: Comment[]
+}

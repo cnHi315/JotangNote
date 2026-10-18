@@ -1,17 +1,36 @@
-import type { ReactNode } from 'react'
+import { useEffect } from 'react'
 
-export function Loading({ label = '加载中…' }: { label?: string }) {
-  return <div className="py-16 text-center text-sm text-slate-400">{label}</div>
+type Tone = 'error' | 'success'
+
+const TONE: Record<Tone, string> = {
+  error: 'border-red-200 bg-red-50 text-red-700',
+  success: 'border-caramel-300 bg-cream-100 text-caramel-700',
 }
 
-export function ErrorBox({ children }: { children: ReactNode }) {
+/** 右下角的轻提示，三秒后自动消失 */
+export function Feedback({
+  message,
+  tone = 'error',
+  onClose,
+}: {
+  message: string | null
+  tone?: Tone
+  onClose: () => void
+}) {
+  useEffect(() => {
+    if (!message) return
+    const timer = setTimeout(onClose, 3000)
+    return () => clearTimeout(timer)
+  }, [message, onClose])
+
+  if (!message) return null
+
   return (
-    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-      {children}
+    <div
+      role="status"
+      className={`fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg border px-4 py-2.5 text-sm shadow-lg ${TONE[tone]}`}
+    >
+      {message}
     </div>
   )
-}
-
-export function Empty({ label = '还没有内容' }: { label?: string }) {
-  return <div className="py-16 text-center text-sm text-slate-400">{label}</div>
 }

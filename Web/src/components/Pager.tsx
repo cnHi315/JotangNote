@@ -1,41 +1,31 @@
-interface PagerProps {
-  total: number
+export function Pager({
+  page,
+  total,
+  pagesize,
+  onChange,
+}: {
   page: number
+  total: number
   pagesize: number
   onChange: (page: number) => void
-}
+}) {
+  const pages = Math.max(1, Math.ceil(total / pagesize))
+  if (pages <= 1) return null
 
-export function Pager({ total, page, pagesize, onChange }: PagerProps) {
-  const totalPages = Math.max(1, Math.ceil(total / pagesize))
-  if (total === 0) return null
-
-  const buttonClass =
-    'rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40'
+  const button =
+    'rounded-md border border-cream-200 px-3 py-1.5 text-sm text-cocoa-700 transition hover:border-caramel-400 hover:text-caramel-700 disabled:cursor-not-allowed disabled:opacity-40'
 
   return (
-    <div className="flex items-center justify-between pt-4 text-sm text-slate-600">
-      <span>
-        共 {total} 条 · 第 {page} / {totalPages} 页
+    <nav className="mt-8 flex items-center justify-center gap-3">
+      <button className={button} disabled={page <= 1} onClick={() => onChange(page - 1)}>
+        上一页
+      </button>
+      <span className="text-sm text-cocoa-500">
+        第 <span className="text-caramel-700">{page}</span> / {pages} 页 · 共 {total} 篇
       </span>
-
-      <div className="flex gap-2">
-        <button
-          type="button"
-          className={buttonClass}
-          disabled={page <= 1}
-          onClick={() => onChange(page - 1)}
-        >
-          上一页
-        </button>
-        <button
-          type="button"
-          className={buttonClass}
-          disabled={page >= totalPages}
-          onClick={() => onChange(page + 1)}
-        >
-          下一页
-        </button>
-      </div>
-    </div>
+      <button className={button} disabled={page >= pages} onClick={() => onChange(page + 1)}>
+        下一页
+      </button>
+    </nav>
   )
 }

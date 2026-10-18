@@ -1,16 +1,15 @@
-import { Navigate, Outlet, useLocation } from 'react-router'
+import type { ReactNode } from 'react'
+import { Navigate, useLocation } from 'react-router'
 
 import { useAuth } from '@/auth/context'
 
-/** 包在需要登录的路由外面，未登录就踢回登录页 */
-export function RequireAuth() {
+export function RequireAuth({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const location = useLocation()
 
   if (!user) {
-    // 记下原本要去的地址，登录成功后跳回去，而不是一律回首页
-    return <Navigate to="/login" state={{ from: location.pathname + location.search }} replace />
+    // 记下来路，登录成功后跳回去
+    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />
   }
-
-  return <Outlet />
+  return <>{children}</>
 }

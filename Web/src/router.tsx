@@ -1,4 +1,4 @@
-import { Navigate, createBrowserRouter } from 'react-router'
+import { createBrowserRouter, Navigate } from 'react-router'
 
 import { setUnauthorizedHandler } from '@/api/http'
 import { Layout } from '@/components/Layout'
@@ -10,29 +10,57 @@ import { NoteEditPage } from '@/pages/NoteEditPage'
 import { NoteListPage } from '@/pages/NoteListPage'
 
 export const router = createBrowserRouter([
-  { path: '/login', element: <LoginPage /> },
-
-  // RequireAuth 判断登录，Layout 提供导航栏，两者之间才是具体页面
   {
-    element: <RequireAuth />,
+    path: '/',
+    element: <Layout />,
     children: [
       {
-        element: <Layout />,
-        children: [
-          { index: true, element: <NoteListPage /> },
-          { path: 'mynotes', element: <MyNotesPage /> },
-          { path: 'notes/:id', element: <NoteDetailPage /> },
-          { path: 'editor', element: <NoteEditPage /> },
-          { path: 'editor/:id', element: <NoteEditPage /> },
-        ],
+        index: true,
+        element: (
+          <RequireAuth>
+            <NoteListPage />
+          </RequireAuth>
+        ),
       },
+      { path: 'login', element: <LoginPage /> },
+      {
+        path: 'mynotes',
+        element: (
+          <RequireAuth>
+            <MyNotesPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'notes/new',
+        element: (
+          <RequireAuth>
+            <NoteEditPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'notes/:id',
+        element: (
+          <RequireAuth>
+            <NoteDetailPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'notes/:id/edit',
+        element: (
+          <RequireAuth>
+            <NoteEditPage />
+          </RequireAuth>
+        ),
+      },
+      { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
-
-  { path: '*', element: <Navigate to="/" replace /> },
 ])
 
-// 任何请求拿到 401 都会走到这里（见 api/http.ts），统一踢回登录页
+// 任何请求遇到 401（token 过期、被清掉）就回登录页
 setUnauthorizedHandler(() => {
   void router.navigate('/login', { replace: true })
 })

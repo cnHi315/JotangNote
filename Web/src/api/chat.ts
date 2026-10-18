@@ -1,19 +1,13 @@
 import { request } from '@/api/http'
 
-export const chatApi = {
-  /**
-   * POST /chat
-   *
-   * 后端签名是 @RequestBody String userMessage，配的转换器是
-   * StringHttpMessageConverter —— 它拿到的是原始请求体，不会当成 JSON 解析。
-   * 所以这里用 text/plain 直接发纯文本，避免多包一层引号被当成消息内容。
-   */
-  send(message: string): Promise<string> {
-    return request<string>('/chat', {
-      method: 'POST',
-      body: message,
-      rawBody: true,
-      contentType: 'text/plain;charset=UTF-8',
-    })
-  },
+/**
+ * 后端 AIController 收的是 @RequestBody String，
+ * 所以这里把对象自己序列化好再发（rawBody），不要让它再 stringify 一次。
+ */
+export function sendChat(userMessage: string): Promise<string> {
+  return request<string>('/chat', {
+    method: 'POST',
+    body: JSON.stringify({ userMessage }),
+    rawBody: true,
+  })
 }

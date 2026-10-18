@@ -1,26 +1,27 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 
-import { userApi } from '@/api/user'
-import { AuthContext, type AuthState } from '@/auth/context'
-import { clearToken, decodeToken, getToken, setToken, type JwtPayload } from '@/auth/token'
+import { AuthContext } from '@/auth/context'
+import { clearToken, decodeToken, getToken, isExpired, setToken, type JwtPayload } from '@/auth/token'
+
+function readUser(): JwtPayload | null {
+  const stored = getToken()
+  if (!stored) return null
+
+  const payload = decodeToken(stored)
+  // 过期的 token 留着只会让每个请求都吃一次 401，启动时直接清掉
+  if (!payload || isExpired(payload)) {
+    clearToken()
+    return null
+  }
+  return payload
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // 初始值从 localStorage 里的 token 反解出来，
-  // 这样刷新页面不用再请求一次后端就能恢复登录态
-  const [user, setUser] = useState<JwtPayload | null>(() => {
-    const cached = getToken()
-    return cached ? decodeToken(cached) : null
-  })
+  const [user, setUser] = useState<JwtPayload | null>(readUser)
 
-  const login = useCallback(async (username: string, password: string) => {
-    const jwt = await userApi.login({ username, password })
-    setToken(jwt)
-    setUser(decodeToken(jwt))
-  }, [])
-
-  const register = useCallback(async (username: string, password: string) => {
-    // 后端注册接口只返回 User，不发 token，所以注册完还要再登录一次
-    await userApi.register({ username, password })
+  const login = useCallback((value: string) => {
+    setToken(value)
+    setUser(decodeToken(value))
   }, [])
 
   const logout = useCallback(() => {
@@ -28,10 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
-  const value = useMemo<AuthState>(
-    () => ({ user, login, register, logout }),
-    [user, login, register, logout],
-  )
+  const value = useMemo(() => ({ user, login, logout }), [user, login, logout])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
